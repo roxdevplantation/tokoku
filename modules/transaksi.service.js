@@ -1,7 +1,3 @@
-/**
- * modules/transaksi.service.js — Business logic untuk Transaksi & Piutang.
- */
-
 import * as DB   from '../core/db.js';
 import * as Sync from '../core/sync.js';
 import { uid }   from '../core/utils.js';
