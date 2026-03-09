@@ -20,16 +20,12 @@ import * as PageSettings  from './pages/settings.js';
   DB.load();
   seedIfEmpty();
   TxSvc.migratePiutang();
-
   window.__db = DB.getDB();
-
   Sync.init();
   Sync.onStatusChange(setSyncStatus);
-
   initSwipeClose();
   _registerRoutes();
   _bindHandlers();
-
   Router.navigate('dashboard');
 
   if ('serviceWorker' in navigator) {
@@ -38,13 +34,11 @@ import * as PageSettings  from './pages/settings.js';
       reg.addEventListener('updatefound', () => {
         const sw = reg.installing;
         sw.addEventListener('statechange', () => {
-          if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+          if (sw.state === 'installed' && navigator.serviceWorker.controller)
             _showUpdateBanner(sw);
-          }
         });
       });
     }).catch(() => {});
-
     let refreshing = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (!refreshing) { refreshing = true; window.location.reload(); }
@@ -64,7 +58,6 @@ function _registerRoutes() {
     document.getElementById('content').innerHTML = '';
     removeFab();
   });
-
   Router.register('dashboard', 'Dashboard',    PageDashboard.render);
   Router.register('barang',    'Kelola Barang', PageBarang.render);
   Router.register('transaksi', 'Transaksi',     PageTransaksi.render);
@@ -84,6 +77,7 @@ function _bindHandlers() {
   window.barangSearch      = (v)   => PageBarang.setSearch(v);
   window.barangSetEmoji    = (e)   => PageBarang.setEmoji(e);
   window.barangCalcMargin  = ()    => PageBarang.updateMarginUI();
+  window.barangScanBarcode = ()    => PageBarang.scanBarcode();
 
   // Transaksi
   window.txSetFilter       = (f)   => PageTransaksi.setFilter(f);
@@ -95,6 +89,7 @@ function _bindHandlers() {
   window.txSimpan          = (m)   => PageTransaksi.simpan(m);
   window.txSavePelanggan   = (v)   => PageTransaksi.savePelanggan(v);
   window.txSaveCatatan     = (v)   => PageTransaksi.saveCatatan(v);
+  window.txScanBarcode     = ()    => PageTransaksi.scanBarcode();
 
   // Piutang
   window.piutangBayarSemua       = (id)       => PagePiutang.bayarSemua(id);
@@ -131,9 +126,7 @@ function _bindHandlers() {
   window.settingsResetData    = ()    => PageSettings.resetData();
 
   // UI
-  window.closeModal   = (id) => {
-    import('./components/ui.js').then(m => m.closeModal(id));
-  };
+  window.closeModal   = (id) => import('./components/ui.js').then(m => m.closeModal(id));
   window.showTxDetail = (id) => PageTransaksi.showDetail(id);
 }
 

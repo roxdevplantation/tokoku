@@ -2,101 +2,80 @@
  * modules/transaksi.service.js — Business logic untuk Transaksi & Piutang.
  */
 
-import * as DB     from '../core/db.js';
-import * as Sync   from '../core/sync.js';
-import * as Barang from './barang.service.js';
-import { uid }     from '../core/utils.js';
-
-// ── Transaksi ─────────────────────────────────────────────────────────────────
+import * as DB   from '../core/db.js';
+import * as Sync from '../core/sync.js';
+import { uid }   from '../core/utils.js';
 
 export function getAll()    { return DB.transaksi(); }
 export function getById(id) { return DB.transaksi().find(t => t.id === id) ?? null; }
 
 export function create({ pelanggan, items, metode, catatan = '' }) {
+  const db = DB.getDB();
+
   for (const item of items) {
-    const ok = Barang.deductStock(item.id, item.qty);
-    if (!ok) throw new Error(`Stok ${item.nama} tidak cukup`);
+    const b = db.barang.find(x => x.id === item.id);
+    if (!b) throw new Error(`Barang "${item.nama}" tidak ditemukan`);
+    if (b.stok < item.qty) throw new Error(`Stok "${b.nama}" tidak cukup (tersisa ${b.stok})`);
   }
 
-  const total = items.reduce((a, i) => a + i.qty * i.harga, 0);
+  for (const item of items) {
+    const b = db.barang.find(x => x.id === item.id);
+    b.stok -= item.qty;
+  }
+
   const tx = {
     id:        uid(),
     pelanggan: pelanggan || 'Umum',
-    tanggal:   new Date().toISOString(),
     items,
-    total,
+    total:     items.reduce((a, i) => a + i.qty * i.harga, 0),
     metode,
-    status:    metode === 'cash' ? 'lunas' : 'belum_lunas',
     catatan,
+    tanggal:   new Date().toISOString(),
+    status:    metode === 'cash' ? 'lunas' : 'belum_lunas',
   };
 
-  const db = DB.getDB();
   db.transaksi.push(tx);
-  if (metode === 'credit') addPiutang(tx);
-
   DB.save();
-  DB.queueSync('add_transaksi', tx);
+  DB.queueSync('create_tx', tx);
   Sync.attemptSync();
+
+  if (metode === 'credit') addPiutang(tx);
   return tx;
 }
 
 export function remove(id) {
   const db = DB.getDB();
   db.transaksi = db.transaksi.filter(t => t.id !== id);
-  db.piutang   = db.piutang.filter(p => p.id !== id);
   DB.save();
-  DB.queueSync('delete_transaksi', { id });
+  DB.queueSync('delete_tx', { id });
   Sync.attemptSync();
 }
-
-// ── Piutang ───────────────────────────────────────────────────────────────────
-//
-// Model: satu entri per pelanggan (per "akun piutang aktif").
-// Struktur:
-// {
-//   id, pelanggan, status: 'belum_lunas'|'lunas',
-//   total,               ← sisa yang belum dibayar
-//   tanggalMulai,        ← tanggal kredit pertama di akun ini
-//   tanggalTerakhir,     ← tanggal kredit terakhir
-//   riwayat: [{
-//     txId, tanggal, items, jumlah, catatan, lunas: bool
-//   }]
-// }
 
 export function getAllPiutang()    { return DB.piutang(); }
 export function getPiutangUnpaid() { return DB.piutang().filter(p => p.status === 'belum_lunas'); }
 export function getPiutangPaid()   { return DB.piutang().filter(p => p.status === 'lunas'); }
 
-/**
- * Tambah kredit baru ke akun piutang pelanggan.
- * Cari akun AKTIF (belum_lunas) dengan nama sama → akumulasi.
- * Jika tidak ada → buat akun baru.
- *
- * Normalisasi nama: trim + lowercase untuk pencocokan,
- * tapi simpan nama asli dari transaksi pertama.
- */
 export function addPiutang(tx) {
-  const db         = DB.getDB();
-  const namaNormal = _normNama(tx.pelanggan);
+  const db  = DB.getDB();
+  const key = tx.pelanggan.trim().toLowerCase();
 
-  const existing = db.piutang.find(
-    p => _normNama(p.pelanggan) === namaNormal && p.status === 'belum_lunas'
+  const existing = db.piutang.find(p =>
+    p.status === 'belum_lunas' &&
+    p.pelanggan.trim().toLowerCase() === key
   );
 
-  const entryBaru = {
+  const entry = {
     txId:    tx.id,
     tanggal: tx.tanggal,
     items:   tx.items,
     jumlah:  tx.total,
-    catatan: tx.catatan || '',
-    lunas:   false,         // ← selalu eksplisit
+    catatan: tx.catatan ?? '',
+    lunas:   false,
   };
 
   if (existing) {
-    existing.riwayat.push(entryBaru);
-    existing.total           = existing.riwayat
-      .filter(r => !r.lunas)
-      .reduce((a, r) => a + r.jumlah, 0);
+    existing.riwayat.push(entry);
+    existing.total += tx.total;
     existing.tanggalTerakhir = tx.tanggal;
   } else {
     db.piutang.push({
@@ -106,102 +85,78 @@ export function addPiutang(tx) {
       total:           tx.total,
       tanggalMulai:    tx.tanggal,
       tanggalTerakhir: tx.tanggal,
-      riwayat:         [entryBaru],
+      riwayat:         [entry],
     });
   }
-  // Tidak perlu DB.save() di sini — caller (create) yang save
+  DB.save();
 }
 
 export function bayar(id) {
   const db = DB.getDB();
   const pi = db.piutang.find(p => p.id === id);
   if (!pi) return;
-  pi.riwayat.forEach(r => { r.lunas = true; });
+
   pi.status = 'lunas';
   pi.total  = 0;
+  (pi.riwayat ?? []).forEach(r => {
+    r.lunas = true;
+    const tx = db.transaksi.find(t => t.id === r.txId);
+    if (tx) tx.status = 'lunas';
+  });
+
   DB.save();
   DB.queueSync('bayar_piutang', { id });
   Sync.attemptSync();
 }
 
 export function bayarSebagian(piutangId, txId) {
-  const db    = DB.getDB();
-  const pi    = db.piutang.find(p => p.id === piutangId);
+  const db = DB.getDB();
+  const pi = db.piutang.find(p => p.id === piutangId);
   if (!pi) return;
+
   const entry = pi.riwayat.find(r => r.txId === txId);
   if (!entry || entry.lunas) return;
+
   entry.lunas = true;
-  // Hitung ulang total dari riwayat yang belum lunas
-  pi.total = pi.riwayat.filter(r => !r.lunas).reduce((a, r) => a + r.jumlah, 0);
+  pi.total    = Math.max(0, pi.total - entry.jumlah);
   if (pi.total === 0) pi.status = 'lunas';
+
+  const tx = db.transaksi.find(t => t.id === txId);
+  if (tx) tx.status = 'lunas';
+
   DB.save();
   DB.queueSync('bayar_piutang_sebagian', { piutangId, txId });
   Sync.attemptSync();
 }
 
-/**
- * Edit satu entri riwayat dalam akun piutang.
- * Field yang bisa diubah: tanggal, jumlah, catatan, items.
- * Total akun dihitung ulang otomatis dari semua riwayat yang belum lunas.
- */
 export function updateRiwayat(piutangId, txId, perubahan) {
-  const db    = DB.getDB();
-  const pi    = db.piutang.find(p => p.id === piutangId);
-  if (!pi) return false;
-
-  const entry = pi.riwayat.find(r => r.txId === txId);
-  if (!entry) return false;
-
-  // Terapkan perubahan — hanya field yang dikirim
-  if (perubahan.tanggal !== undefined) entry.tanggal = perubahan.tanggal;
-  if (perubahan.jumlah  !== undefined) entry.jumlah  = perubahan.jumlah;
-  if (perubahan.catatan !== undefined) entry.catatan  = perubahan.catatan;
-  if (perubahan.items   !== undefined) entry.items    = perubahan.items;
-
-  // Hitung ulang total akun dari riwayat belum lunas
-  pi.total = pi.riwayat
-    .filter(r => !r.lunas)
-    .reduce((a, r) => a + r.jumlah, 0);
-
-  // Update tanggal terakhir dari semua riwayat
-  const tgl = pi.riwayat.map(r => r.tanggal).sort();
-  pi.tanggalMulai    = tgl[0];
-  pi.tanggalTerakhir = tgl[tgl.length - 1];
-
-  // Jika total 0 dan semua sudah lunas, tandai akun lunas
-  if (pi.total === 0 && pi.riwayat.every(r => r.lunas)) pi.status = 'lunas';
-
+  const db = DB.getDB();
+  const p  = db.piutang.find(x => x.id === piutangId);
+  if (!p) return;
+  const r  = (p.riwayat ?? []).find(x => x.txId === txId);
+  if (!r) return;
+  if (perubahan.tanggal !== undefined) r.tanggal = perubahan.tanggal;
+  if (perubahan.catatan !== undefined) r.catatan = perubahan.catatan;
+  if (perubahan.items   !== undefined) r.items   = perubahan.items;
+  if (perubahan.jumlah  !== undefined) r.jumlah  = perubahan.jumlah;
+  p.total = (p.riwayat ?? [])
+    .filter(x => !x.lunas)
+    .reduce((a, x) => a + x.jumlah, 0);
   DB.save();
-  DB.queueSync('update_riwayat_piutang', { piutangId, txId, perubahan });
-  Sync.attemptSync();
-  return true;
 }
 
-/**
- * Hapus satu entri riwayat dari akun piutang.
- * Jika setelah dihapus tidak ada riwayat tersisa, hapus akun juga.
- */
 export function hapusRiwayat(piutangId, txId) {
   const db = DB.getDB();
-  const pi = db.piutang.find(p => p.id === piutangId);
-  if (!pi) return;
-
-  pi.riwayat = pi.riwayat.filter(r => r.txId !== txId);
-
-   if (pi.riwayat.length === 0) {
-    // Tidak ada riwayat tersisa — hapus akun
-    db.piutang = db.piutang.filter(p => p.id !== piutangId);
+  const p  = db.piutang.find(x => x.id === piutangId);
+  if (!p) return;
+  p.riwayat = (p.riwayat ?? []).filter(x => x.txId !== txId);
+  if (p.riwayat.length === 0) {
+    db.piutang = db.piutang.filter(x => x.id !== piutangId);
   } else {
-    // Hitung ulang total
-    pi.total = pi.riwayat
-      .filter(r => !r.lunas)
-      .reduce((a, r) => a + r.jumlah, 0);
-    if (pi.total === 0 && pi.riwayat.every(r => r.lunas)) pi.status = 'lunas';
+    p.total = p.riwayat.filter(x => !x.lunas).reduce((a, x) => a + x.jumlah, 0);
+    if (p.total === 0) p.status = 'lunas';
   }
-
   DB.save();
-  DB.queueSync('hapus_riwayat_piutang', { piutangId, txId });
-  Sync.attemptSync();
 }
 
 export function removePiutang(id) {
@@ -212,31 +167,21 @@ export function removePiutang(id) {
   Sync.attemptSync();
 }
 
-// ── Migrasi data lama ─────────────────────────────────────────────────────────
-//
-// Data lama mungkin menyimpan piutang sebagai satu entri per transaksi
-// (model lama: { id, pelanggan, items, total, metode, status, tanggal, ... })
-// bukan model baru per pelanggan dengan riwayat[].
-// Fungsi ini dipanggil sekali saat app.js bootstrap.
-
 export function migratePiutang() {
-  const db = DB.getDB();
+  const db    = DB.getDB();
   const perlu = db.piutang.some(p => !Array.isArray(p.riwayat));
-  if (!perlu) return;  // sudah format baru semua, skip
+  if (!perlu) return;
 
-  // Pisahkan yang sudah baru vs yang masih lama
-  const sudahBaru = db.piutang.filter(p => Array.isArray(p.riwayat));
+  const sudahBaru = db.piutang.filter(p =>  Array.isArray(p.riwayat));
   const masihLama = db.piutang.filter(p => !Array.isArray(p.riwayat));
-
-  // Kelompokkan entri lama per nama pelanggan + status
-  const akunMap = new Map(); // key: `${namaNormal}__${status}`
+  const akunMap   = new Map();
 
   masihLama.forEach(p => {
-    const key = `${_normNama(p.pelanggan)}__${p.status ?? 'belum_lunas'}`;
+    const key = `${(p.pelanggan ?? '').trim().toLowerCase()}__${p.status ?? 'belum_lunas'}`;
     if (!akunMap.has(key)) {
       akunMap.set(key, {
         id:              uid(),
-        pelanggan:       p.pelanggan?.trim() ?? 'Umum',
+        pelanggan:       (p.pelanggan ?? 'Umum').trim(),
         status:          p.status ?? 'belum_lunas',
         total:           0,
         tanggalMulai:    p.tanggal ?? new Date().toISOString(),
@@ -245,52 +190,39 @@ export function migratePiutang() {
       });
     }
     const akun = akunMap.get(key);
-
-    // Bangun entri riwayat dari data lama
-    const jumlah = p.total ?? 0;
-    const isLunas = (p.status === 'lunas');
     akun.riwayat.push({
       txId:    p.id ?? uid(),
       tanggal: p.tanggal ?? new Date().toISOString(),
-      items:   p.items ?? [],
-      jumlah,
+      items:   p.items   ?? [],
+      jumlah:  p.total   ?? 0,
       catatan: p.catatan ?? '',
-      lunas:   isLunas,
+      lunas:   p.status === 'lunas',
     });
-
-    // Update tanggal terakhir jika lebih baru
-    if (p.tanggal && p.tanggal > akun.tanggalTerakhir) {
-      akun.tanggalTerakhir = p.tanggal;
-    }
-    if (p.tanggal && p.tanggal < akun.tanggalMulai) {
-      akun.tanggalMulai = p.tanggal;
-    }
+    if (p.tanggal && p.tanggal > akun.tanggalTerakhir) akun.tanggalTerakhir = p.tanggal;
+    if (p.tanggal && p.tanggal < akun.tanggalMulai)    akun.tanggalMulai    = p.tanggal;
   });
 
-  // Hitung total sisa (hanya riwayat belum lunas) per akun
   akunMap.forEach(akun => {
-    akun.total = akun.riwayat
-      .filter(r => !r.lunas)
-      .reduce((a, r) => a + r.jumlah, 0);
-    if (akun.total === 0 && akun.riwayat.every(r => r.lunas)) {
-      akun.status = 'lunas';
-    }
+    akun.total = akun.riwayat.filter(r => !r.lunas).reduce((a, r) => a + r.jumlah, 0);
+    if (akun.total === 0 && akun.riwayat.every(r => r.lunas)) akun.status = 'lunas';
   });
 
-  // Gabungkan akun baru dari migrasi dengan yang sudah format baru
   db.piutang = [...sudahBaru, ...Array.from(akunMap.values())];
   DB.save();
-  console.log(`[TokoKu] Migrasi piutang: ${masihLama.length} entri lama → ${akunMap.size} akun`);
 }
-
-// ── Statistik ─────────────────────────────────────────────────────────────────
 
 export function statsToday() {
   const today   = new Date().toDateString();
-  const todayTx = DB.transaksi().filter(t => new Date(t.tanggal).toDateString() === today);
+  const todayTx = DB.transaksi().filter(t =>
+    new Date(t.tanggal).toDateString() === today
+  );
+  const omzet = todayTx.reduce((a, t) => a + t.total, 0);
   return {
-    count: todayTx.length,
-    total: todayTx.reduce((a, t) => a + t.total, 0),
+    count:  todayTx.length,
+    total:  omzet,
+    omzet,
+    cash:   todayTx.filter(t => t.metode === 'cash').reduce((a, t) => a + t.total, 0),
+    credit: todayTx.filter(t => t.metode === 'credit').reduce((a, t) => a + t.total, 0),
   };
 }
 
@@ -302,16 +234,13 @@ export function statsByDay(days = 7) {
     const total = DB.transaksi()
       .filter(t => new Date(t.tanggal).toDateString() === ds)
       .reduce((a, t) => a + t.total, 0);
-    return { label: d.toLocaleDateString('id-ID', { weekday: 'narrow' }), total };
+    return {
+      label: d.toLocaleDateString('id-ID', { weekday: 'narrow' }),
+      total,
+    };
   });
 }
 
 export function totalPiutangUnpaid() {
   return getPiutangUnpaid().reduce((a, p) => a + p.total, 0);
-}
-
-// ── internal ──────────────────────────────────────────────────────────────────
-
-function _normNama(nama) {
-  return (nama ?? '').trim().toLowerCase();
 }
