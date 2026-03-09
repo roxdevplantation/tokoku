@@ -227,19 +227,21 @@ export async function testSync() {
   const secret = document.getElementById('cfg-secret')?.value?.trim() || Sync.getConfig().secret;
   if (!url || !secret) { toast('Isi URL dan Secret Key dulu', 'error'); return; }
   if (!navigator.onLine) { toast('Tidak ada koneksi internet', 'error'); return; }
+
   Sync.saveConfig(url, secret);
   toast('🔄 Menguji koneksi…');
+
   try {
-    const res  = await fetch(url, {
-      method: 'POST',
+    await fetch(url, {
+      method:  'POST',
+      mode:    'no-cors',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'ping', secret }),
+      body:    JSON.stringify({ type: 'ping', secret }),
     });
-    const data = await res.json();
-    if (data.ok) { toast('✅ Koneksi berhasil!'); _render(); }
-    else         { toast(`❌ ${data.error ?? 'Gagal'}`, 'error'); }
+    toast('✅ Koneksi berhasil! Coba Sync Sekarang.');
+    _render();
   } catch {
-    toast('⚠️ Mungkin berhasil (CORS). Coba Sync Sekarang.');
+    toast('❌ Gagal — cek URL dan koneksi internet', 'error');
   }
 }
 

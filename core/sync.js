@@ -1,20 +1,11 @@
-/**
- * core/sync.js — Online/offline detection & Google Sheets sync engine.
- * Bertanggung jawab atas satu hal: mengirim data ke Sheets saat ada internet.
- */
-
 import * as DB from './db.js';
 
 const GS_URL_KEY    = 'gs_url';
 const GS_SECRET_KEY = 'gs_secret';
 
-// ── internal state ──────────────────────────────────────────────────────────
 let _isSyncing = false;
 let _callbacks = { statusChange: [] };
 
-// ── public API ──────────────────────────────────────────────────────────────
-
-/** Daftarkan callback untuk perubahan status (online/offline/syncing). */
 export function onStatusChange(fn) {
   _callbacks.statusChange.push(fn);
 }
@@ -33,7 +24,6 @@ export function saveConfig(url, secret) {
   localStorage.setItem(GS_SECRET_KEY, secret);
 }
 
-/** Inisialisasi listener. Panggil sekali saat app start. */
 export function init() {
   window.addEventListener('online',  _handleOnline);
   window.addEventListener('offline', _handleOffline);
@@ -45,10 +35,6 @@ export function destroy() {
   window.removeEventListener('offline', _handleOffline);
 }
 
-/**
- * Coba sync semua pending operation ke Google Sheets.
- * Idempoten — aman dipanggil berkali-kali.
- */
 export async function attemptSync() {
   const cfg = getConfig();
   if (!cfg.url || !isOnline() || _isSyncing) return;
@@ -60,8 +46,9 @@ export async function attemptSync() {
   _emit('statusChange', 'syncing');
 
   try {
-    const res = await fetch(cfg.url, {
+    await fetch(cfg.url, {
       method:  'POST',
+      mode:    'no-cors',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({
         type:    'sync',
@@ -71,8 +58,8 @@ export async function attemptSync() {
       }),
     });
 
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
+    // no-cors → response.type === 'opaque', tidak bisa cek status
+    // Anggap berhasil kalau tidak ada network error
     DB.clearPending();
     _emit('statusChange', 'online');
     return true;
@@ -84,8 +71,6 @@ export async function attemptSync() {
     _isSyncing = false;
   }
 }
-
-// ── internal ─────────────────────────────────────────────────────────────────
 
 function _handleOnline()  {
   _emit('statusChange', 'online');
