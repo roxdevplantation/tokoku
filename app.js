@@ -65,16 +65,17 @@ function _bindHandlers() {
   window.navigate = (page) => Router.navigate(page);
 
   // Barang
-  window.barangOpenForm    = (id)  => PageBarang.openForm(id ?? null);
-  window.barangSave        = (id)  => PageBarang.save(id || '');
-  window.barangDelete      = (id)  => PageBarang.del(id);
-  window.barangSetFilter   = (f)   => PageBarang.setFilter(f);
-  window.barangSearch      = (v)   => PageBarang.setSearch(v);
-  window.barangSetEmoji    = (e)   => PageBarang.setEmoji(e);
-  window.barangCalcMargin  = ()    => PageBarang.updateMarginUI();
-  window.barangScanBarcode = ()    => PageBarang.scanBarcode();
-  window.barangScanTambah  = ()    => PageBarang.scanTambah();
-  window.barangQuickSave   = ()    => PageBarang.quickSave();
+  window.barangOpenForm        = (id)  => PageBarang.openForm(id ?? null);
+  window.barangSave            = (id)  => PageBarang.save(id || '');
+  window.barangDelete          = (id)  => PageBarang.del(id);
+  window.barangSetFilter       = (f)   => PageBarang.setFilter(f);
+  window.barangSearch          = (v)   => PageBarang.setSearch(v);
+  window.barangSetEmoji        = (e)   => PageBarang.setEmoji(e);
+  window.barangCalcMargin      = ()    => PageBarang.updateMarginUI();
+  window.barangScanBarcode     = ()    => PageBarang.scanBarcode();
+  window.barangScanTambah      = ()    => PageBarang.scanTambah();
+  window.barangQuickSave       = ()    => PageBarang.quickSave();
+  window.barangQuickCalcMargin = ()    => PageBarang.quickCalcMargin();
 
   // Transaksi
   window.txSetFilter       = (f)   => PageTransaksi.setFilter(f);
