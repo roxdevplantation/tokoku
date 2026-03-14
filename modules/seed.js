@@ -36,7 +36,7 @@
   // db.transaksi = [tx];
   // db.piutang   = [pi];
   // DB.save();
-=======
+//=======
 // import * as DB from '../core/db.js';
 // import { uid } from '../core/utils.js';
 
