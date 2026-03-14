@@ -19,10 +19,11 @@ function _showModal() {
   const el = document.createElement('div');
   el.id    = 'modal-scanner';
   el.innerHTML = `
-    <div style="position:fixed;inset:0;background:#000d;z-index:500;
+    <div style="position:fixed;inset:0;background:#000e;z-index:500;
                 display:flex;flex-direction:column;align-items:center;
                 justify-content:center;padding:20px">
 
+      <!-- Header -->
       <div style="width:100%;max-width:420px;display:flex;
                   justify-content:space-between;align-items:center;
                   margin-bottom:12px">
@@ -36,19 +37,74 @@ function _showModal() {
         </button>
       </div>
 
-      <!-- Viewfinder -->
+      <!-- Viewfinder wrapper -->
       <div style="width:100%;max-width:420px;border-radius:14px;
-                  overflow:hidden;background:#000;position:relative">
+                  overflow:hidden;background:#000;position:relative"
+           id="scanner-wrapper">
+
+        <!-- Video dari html5-qrcode -->
         <div id="scanner-view"></div>
-        <div style="position:absolute;left:8%;right:8%;height:2px;top:50%;
-                    background:linear-gradient(90deg,transparent,#ef4444,transparent);
-                    animation:scanline 2s ease-in-out infinite;pointer-events:none">
+
+        <!-- Overlay gelap atas -->
+        <div style="position:absolute;top:0;left:0;right:0;
+                    height:calc(50% - 50px);
+                    background:#0008;pointer-events:none"></div>
+
+        <!-- Overlay gelap bawah -->
+        <div style="position:absolute;bottom:0;left:0;right:0;
+                    height:calc(50% - 50px);
+                    background:#0008;pointer-events:none"></div>
+
+        <!-- Overlay gelap kiri -->
+        <div style="position:absolute;top:calc(50% - 50px);left:0;
+                    width:calc(50% - 150px);height:100px;
+                    background:#0008;pointer-events:none"></div>
+
+        <!-- Overlay gelap kanan -->
+        <div style="position:absolute;top:calc(50% - 50px);right:0;
+                    width:calc(50% - 150px);height:100px;
+                    background:#0008;pointer-events:none"></div>
+
+        <!-- Kotak scan — pas dengan qrbox 300x100 -->
+        <div style="position:absolute;
+                    top:calc(50% - 50px);
+                    left:calc(50% - 150px);
+                    width:300px;height:100px;
+                    pointer-events:none">
+
+          <!-- Sudut kiri atas -->
+          <div style="position:absolute;top:0;left:0;width:20px;height:20px;
+                      border-top:3px solid #ef4444;border-left:3px solid #ef4444;
+                      border-radius:2px 0 0 0"></div>
+          <!-- Sudut kanan atas -->
+          <div style="position:absolute;top:0;right:0;width:20px;height:20px;
+                      border-top:3px solid #ef4444;border-right:3px solid #ef4444;
+                      border-radius:0 2px 0 0"></div>
+          <!-- Sudut kiri bawah -->
+          <div style="position:absolute;bottom:0;left:0;width:20px;height:20px;
+                      border-bottom:3px solid #ef4444;border-left:3px solid #ef4444;
+                      border-radius:0 0 0 2px"></div>
+          <!-- Sudut kanan bawah -->
+          <div style="position:absolute;bottom:0;right:0;width:20px;height:20px;
+                      border-bottom:3px solid #ef4444;border-right:3px solid #ef4444;
+                      border-radius:0 0 2px 0"></div>
+
+          <!-- Garis scan bergerak di dalam kotak -->
+          <div style="position:absolute;
+                      left:0;right:0;height:2px;top:0;
+                      background:linear-gradient(90deg,transparent 0%,#ef4444 30%,#ff6b6b 50%,#ef4444 70%,transparent 100%);
+                      box-shadow:0 0 6px #ef4444;
+                      animation:scanline 1.8s ease-in-out infinite;
+                      pointer-events:none">
+          </div>
         </div>
+
       </div>
 
+      <!-- Pesan status -->
       <div id="scanner-msg"
-        style="margin-top:14px;font-size:13px;color:#94a3b8;text-align:center;
-               min-height:20px">
+        style="margin-top:14px;font-size:13px;color:#94a3b8;
+               text-align:center;min-height:20px">
         Arahkan kamera ke barcode produk…
       </div>
 
@@ -76,8 +132,9 @@ function _showModal() {
 
     <style>
       @keyframes scanline {
-        0%,100% { transform:translateY(-40px); opacity:.8; }
-        50%      { transform:translateY(40px);  opacity:.8; }
+        0%   { top: 2px;  opacity: 1; }
+        50%  { top: 92px; opacity: 1; }
+        100% { top: 2px;  opacity: 1; }
       }
     </style>
   `;
