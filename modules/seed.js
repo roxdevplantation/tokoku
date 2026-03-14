@@ -3,11 +3,11 @@
  * Hanya dipanggil sekali jika db.barang kosong.
  */
 
-<<<<<<< HEAD
+// <<<<<<< HEAD
 // import * as DB from '../core/db.js';
 // import { uid } from '../core/utils.js';
 
-export function seedIfEmpty() {
+// export function seedIfEmpty() {
   // const db = DB.getDB();
   // if (db.barang.length > 0) return;
   //
@@ -37,12 +37,12 @@ export function seedIfEmpty() {
   // db.piutang   = [pi];
   // DB.save();
 =======
-import * as DB from '../core/db.js';
-import { uid } from '../core/utils.js';
+// import * as DB from '../core/db.js';
+// import { uid } from '../core/utils.js';
 
-export function seedIfEmpty() {
-  const db = DB.getDB();
-  if (db.barang.length > 0) return;
+// export function seedIfEmpty() {
+  // const db = DB.getDB();
+  // if (db.barang.length > 0) return;
 
   // const barang = [
   //   { id: uid(), nama: 'Beras 5kg',        kategori: 'Sembako',  harga_beli: 60000, harga_jual: 68000, stok: 25, satuan: 'karung', emoji: '🌾' },
@@ -65,9 +65,10 @@ export function seedIfEmpty() {
   //   total: 96000, metode: 'credit', status: 'belum_lunas', catatan: 'Janji bayar minggu depan',
   // };
 
-  db.barang    = barang;
-  db.transaksi = [tx];
-  db.piutang   = [pi];
-  DB.save();
->>>>>>> 4514512 (perbaharui)
-}
+  // db.barang    = barang;
+  // db.transaksi = [tx];
+  // db.piutang   = [pi];
+  // DB.save();
+// >>>>>>> 4514512 (perbaharui)
+// }
+ export function seedIfEmpty() {}
