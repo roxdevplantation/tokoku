@@ -159,8 +159,8 @@ function _showUpdateBanner(newWorker) {
     banner.remove();
   });
   document.getElementById('update-dismiss').addEventListener('click', () => banner.remove());
-<<<<<<< HEAD
-=======
+// <<<<<<< HEAD
+// =======
 }/**
  * app.js — Entry point. Bootstrap & kabel semua modul.
  */
@@ -328,7 +328,7 @@ function _showUpdateBanner(newWorker) {
     banner.remove();
   });
   document.getElementById('update-dismiss').addEventListener('click', () => banner.remove());
->>>>>>> 4514512 (perbaharui)
+// >>>>>>> 4514512 (perbaharui)
 }import * as DB            from './core/db.js';
 import * as Sync          from './core/sync.js';
 import * as Router        from './core/router.js';
