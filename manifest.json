@@ -1,4 +1,5 @@
 {
+  "id": "/",
   "name": "TokoKu - Inventory Toko",
   "short_name": "TokoKu",
   "description": "Aplikasi inventory toko offline-first dengan sync Google Sheets",
