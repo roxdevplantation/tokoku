@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "dev.pages.tokoku_9lo.twa",
+        "sha256_cert_fingerprints": ["90:BF:A6:0A:20:4D:DB:21:07:F5:4A:97:A0:24:87:82:92:DB:BF:5F:36:B5:62:21:C3:40:B2:4E:50:34:D6:65"]
+      }
+    }]
