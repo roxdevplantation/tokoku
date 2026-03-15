@@ -1,1 +1,3 @@
-ini hanyalah proyek suka-suka untuk pembelajaran
+Kebutuhan melahirkan ide, tekanan melahirkan inovasi.”
+
+“Masalah adalah prompt, solusi adalah kode.”
