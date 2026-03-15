@@ -47,27 +47,27 @@ function _showModal() {
 
         <!-- Overlay gelap atas -->
         <div style="position:absolute;top:0;left:0;right:0;
-                    height:calc(50% - 50px);
+                    height:calc(63% - 50px);
                     background:#0008;pointer-events:none"></div>
 
         <!-- Overlay gelap bawah -->
         <div style="position:absolute;bottom:0;left:0;right:0;
-                    height:calc(50% - 50px);
+                    height:calc(37% - 50px);
                     background:#0008;pointer-events:none"></div>
 
         <!-- Overlay gelap kiri -->
-        <div style="position:absolute;top:calc(50% - 50px);left:0;
+        <div style="position:absolute;top:calc(63% - 50px);left:0;
                     width:calc(50% - 150px);height:100px;
                     background:#0008;pointer-events:none"></div>
 
         <!-- Overlay gelap kanan -->
-        <div style="position:absolute;top:calc(50% - 50px);right:0;
+        <div style="position:absolute;top:calc(63% - 50px);right:0;
                     width:calc(50% - 150px);height:100px;
                     background:#0008;pointer-events:none"></div>
 
         <!-- Kotak scan — pas dengan qrbox 300x100 -->
         <div style="position:absolute;
-                    top:calc(50% - 50px);
+                    top:calc(63% - 50px);
                     left:calc(50% - 150px);
                     width:300px;height:100px;
                     pointer-events:none">
@@ -156,7 +156,7 @@ function _start() {
       { facingMode: 'environment' },
       {
         fps: 15,
-        qrbox: { width: 300, height: 100 },
+        qrbox: { width: 300, height:100 , },
         aspectRatio: 2.0,
         formatsToSupport: [
           Html5QrcodeSupportedFormats.EAN_13,
