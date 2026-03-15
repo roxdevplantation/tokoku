@@ -1,10 +1,3 @@
-/**
- * components/ui.js — Reusable UI primitives: Toast, Modal, FAB.
- * Setiap fungsi hanya manipulasi DOM yang sudah ada di index.html.
- */
-
-// ── Toast ────────────────────────────────────────────────────────────────────
-
 let _toastTimer = null;
 
 /**
@@ -24,10 +17,16 @@ export function toast(msg, type = 'success') {
 
 export function openModal(id) {
   document.getElementById(id)?.classList.add('show');
+  // Push history agar tombol back Android bisa menutup modal
+  history.pushState({ modal: id }, '', location.href.split('#')[0] + '#modal-' + id);
 }
 
 export function closeModal(id) {
-  document.getElementById(id)?.classList.remove('show');
+  const el = document.getElementById(id);
+  if (!el?.classList.contains('show')) return;
+  el.classList.remove('show');
+  // Kembali ke state sebelum modal dibuka
+  if (history.state?.modal === id) history.back();
 }
 
 /** Isi konten modal sekaligus buka. */
@@ -42,6 +41,14 @@ export function showModal(id, { title, titleEl, body, bodyEl }) {
   }
   openModal(id);
 }
+
+// Intersept popstate untuk menutup modal aktif saat back Android
+window.addEventListener('popstate', (e) => {
+  const openModals = document.querySelectorAll('.modal-overlay.show');
+  if (openModals.length > 0) {
+    openModals.forEach(m => m.classList.remove('show'));
+  }
+});
 
 // ── FAB ──────────────────────────────────────────────────────────────────────
 

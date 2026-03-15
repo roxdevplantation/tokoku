@@ -1,4 +1,4 @@
-const _routes        = new Map();   // name → { render, title }
+const _routes        = new Map();
 let   _current       = null;
 let   _onChange      = null;
 let   _popstateReady = false;
@@ -30,23 +30,33 @@ export function refresh() {
   if (_current) navigate(_current, false);
 }
 
-// Inisialisasi popstate listener untuk tombol back Android
 export function initBackHandler() {
   if (_popstateReady) return;
   _popstateReady = true;
 
-  // Set initial state agar back pertama tidak langsung keluar app
   history.replaceState({ page: 'dashboard' }, '', '#dashboard');
 
   window.addEventListener('popstate', (e) => {
-    const page = e.state?.page;
+  const page = e.state?.page;
 
-    if (page && _routes.has(page)) {
-      // Navigasi ke halaman sebelumnya tanpa push history lagi
-      navigate(page, false);
-    } else {
-      // Sudah di paling awal — push ulang biar tidak keluar
-      history.pushState({ page: _current || 'dashboard' }, '', `#${_current || 'dashboard'}`);
+  // Jika ada modal terbuka, biarkan ui.js yang handle
+  const openModals = document.querySelectorAll('.modal-overlay.show');
+  if (openModals.length > 0) return;
+
+  // Jika ada scanner terbuka, biarkan scanner.js yang handle
+  if (document.getElementById('modal-scanner')) return;
+
+  if (page) {
+    navigate(page, false);
+  } else {
+    // Sudah di paling awal — kalau di dashboard, keluar app
+    if (_current === 'dashboard') {
+      // Tidak push ulang, biarkan app tertutup natural
+      return;
     }
+    // Kalau di halaman lain, kembali ke dashboard
+    navigate('dashboard', false);
+    history.replaceState({ page: 'dashboard' }, '', '#dashboard');
+  }
   });
 }

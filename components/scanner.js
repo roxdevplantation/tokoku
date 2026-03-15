@@ -11,6 +11,7 @@ export function openScanner(onResult) {
 export function closeScanner() {
   _stop();
   document.getElementById('modal-scanner')?.remove();
+  if (history.state?.modal === 'scanner') history.back();
 }
 
 function _showModal() {
@@ -103,6 +104,7 @@ function _showModal() {
     </style>
   `;
   document.body.appendChild(el);
+  history.pushState({ modal: 'scanner' }, '', location.href.split('#')[0] + '#modal-scanner');
 
   window.closeScanner = closeScanner;
   window._scanManual  = () => {
@@ -300,3 +302,11 @@ function _ensureLib() {
     document.head.appendChild(s);
   });
 }
+
+// Intersept back Android — tutup scanner jika sedang terbuka
+window.addEventListener('popstate', () => {
+  if (document.getElementById('modal-scanner')) {
+    _stop();
+    document.getElementById('modal-scanner')?.remove();
+  }
+});
