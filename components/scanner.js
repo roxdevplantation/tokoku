@@ -45,59 +45,10 @@ function _showModal() {
         <!-- Video dari html5-qrcode -->
         <div id="scanner-view"></div>
 
-        <!-- Overlay gelap atas -->
-        <div style="position:absolute;top:0;left:0;right:0;
-                    height:calc(63% - 50px);
-                    background:#0008;pointer-events:none"></div>
-
-        <!-- Overlay gelap bawah -->
-        <div style="position:absolute;bottom:0;left:0;right:0;
-                    height:calc(37% - 50px);
-                    background:#0008;pointer-events:none"></div>
-
-        <!-- Overlay gelap kiri -->
-        <div style="position:absolute;top:calc(63% - 50px);left:0;
-                    width:calc(50% - 150px);height:100px;
-                    background:#0008;pointer-events:none"></div>
-
-        <!-- Overlay gelap kanan -->
-        <div style="position:absolute;top:calc(63% - 50px);right:0;
-                    width:calc(50% - 150px);height:100px;
-                    background:#0008;pointer-events:none"></div>
-
-        <!-- Kotak scan — pas dengan qrbox 300x100 -->
-        <div style="position:absolute;
-                    top:calc(63% - 50px);
-                    left:calc(50% - 150px);
-                    width:300px;height:100px;
-                    pointer-events:none">
-
-          <!-- Sudut kiri atas -->
-          <div style="position:absolute;top:0;left:0;width:20px;height:20px;
-                      border-top:3px solid #ef4444;border-left:3px solid #ef4444;
-                      border-radius:2px 0 0 0"></div>
-          <!-- Sudut kanan atas -->
-          <div style="position:absolute;top:0;right:0;width:20px;height:20px;
-                      border-top:3px solid #ef4444;border-right:3px solid #ef4444;
-                      border-radius:0 2px 0 0"></div>
-          <!-- Sudut kiri bawah -->
-          <div style="position:absolute;bottom:0;left:0;width:20px;height:20px;
-                      border-bottom:3px solid #ef4444;border-left:3px solid #ef4444;
-                      border-radius:0 0 0 2px"></div>
-          <!-- Sudut kanan bawah -->
-          <div style="position:absolute;bottom:0;right:0;width:20px;height:20px;
-                      border-bottom:3px solid #ef4444;border-right:3px solid #ef4444;
-                      border-radius:0 0 2px 0"></div>
-
-          <!-- Garis scan bergerak di dalam kotak -->
-          <div style="position:absolute;
-                      left:0;right:0;height:2px;top:0;
-                      background:linear-gradient(90deg,transparent 0%,#ef4444 30%,#ff6b6b 50%,#ef4444 70%,transparent 100%);
-                      box-shadow:0 0 6px #ef4444;
-                      animation:scanline 1.8s ease-in-out infinite;
-                      pointer-events:none">
-          </div>
-        </div>
+        <!-- Canvas overlay — digambar via JS agar konsisten di WebView & Chrome -->
+        <canvas id="scan-overlay"
+          style="position:absolute;top:0;left:0;
+                 width:100%;height:100%;pointer-events:none"></canvas>
 
       </div>
 
@@ -131,10 +82,23 @@ function _showModal() {
     </div>
 
     <style>
-      @keyframes scanline {
-        0%   { top: 2px;  opacity: 1; }
-        50%  { top: 92px; opacity: 1; }
-        100% { top: 2px;  opacity: 1; }
+      #scanner-view {
+        width: 100% !important;
+      }
+      #scanner-view video {
+        width: 100% !important;
+        display: block !important;
+        object-fit: cover !important;
+      }
+      /* Hide semua bawaan html5-qrcode */
+      #scanner-view__scan_region {
+        display: none !important;
+      }
+      #scanner-view__dashboard {
+        display: none !important;
+      }
+      #scanner-view__header_message {
+        display: none !important;
       }
     </style>
   `;
@@ -149,6 +113,122 @@ function _showModal() {
   _start();
 }
 
+function _drawOverlay() {
+  const wrapper = document.getElementById('scanner-wrapper');
+  const canvas  = document.getElementById('scan-overlay');
+  if (!wrapper || !canvas) return;
+
+  const W = wrapper.offsetWidth;
+  const H = wrapper.offsetHeight;
+
+  // Tunggu sampai video benar-benar render dan punya tinggi
+  if (H < 10) {
+    setTimeout(_drawOverlay, 300);
+    return;
+  }
+
+  canvas.width  = W;
+  canvas.height = H;
+
+  const ctx = canvas.getContext('2d');
+
+  // Ukuran kotak scan
+  const bw = Math.min(W * 0.85, 320);
+  const bh = Math.round(bw * 0.33);
+  const bx = (W - bw) / 2;
+  const by = (H - bh) / 2;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Overlay gelap di luar kotak
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(0, 0, W, by);           // atas
+  ctx.fillRect(0, by + bh, W, H);      // bawah
+  ctx.fillRect(0, by, bx, bh);         // kiri
+  ctx.fillRect(bx + bw, by, W, bh);    // kanan
+
+  // Sudut merah
+  const cs = 22; // panjang sudut
+  ctx.strokeStyle = '#ef4444';
+  ctx.lineWidth   = 3;
+  ctx.lineCap     = 'square';
+
+  // Kiri atas
+  ctx.beginPath();
+  ctx.moveTo(bx, by + cs);
+  ctx.lineTo(bx, by);
+  ctx.lineTo(bx + cs, by);
+  ctx.stroke();
+
+  // Kanan atas
+  ctx.beginPath();
+  ctx.moveTo(bx + bw - cs, by);
+  ctx.lineTo(bx + bw, by);
+  ctx.lineTo(bx + bw, by + cs);
+  ctx.stroke();
+
+  // Kiri bawah
+  ctx.beginPath();
+  ctx.moveTo(bx, by + bh - cs);
+  ctx.lineTo(bx, by + bh);
+  ctx.lineTo(bx + cs, by + bh);
+  ctx.stroke();
+
+  // Kanan bawah
+  ctx.beginPath();
+  ctx.moveTo(bx + bw - cs, by + bh);
+  ctx.lineTo(bx + bw, by + bh);
+  ctx.lineTo(bx + bw - cs, by + bh);
+  ctx.stroke();
+
+  // Animasi scanline
+  _animateScanline(ctx, bx, by, bw, bh);
+}
+
+let _scanlineAnim = null;
+let _scanlineY    = 0;
+let _scanlineDir  = 1;
+
+function _animateScanline(ctx, bx, by, bw, bh) {
+  if (_scanlineAnim) cancelAnimationFrame(_scanlineAnim);
+
+  _scanlineY   = by + 2;
+  _scanlineDir = 1;
+
+  function draw() {
+    if (!document.getElementById('scan-overlay')) return;
+
+    // Hapus hanya area scanline sebelumnya
+    ctx.clearRect(bx + 1, by + 1, bw - 2, bh - 2);
+
+    // Gambar ulang overlay gelap dalam kotak (biar tidak bocor)
+    // — tidak perlu, scanline di atas overlay transparan
+
+    // Gambar scanline
+    const grad = ctx.createLinearGradient(bx, 0, bx + bw, 0);
+    grad.addColorStop(0,    'transparent');
+    grad.addColorStop(0.3,  '#ef4444');
+    grad.addColorStop(0.5,  '#ff6b6b');
+    grad.addColorStop(0.7,  '#ef4444');
+    grad.addColorStop(1,    'transparent');
+
+    ctx.fillStyle = grad;
+    ctx.shadowColor = '#ef4444';
+    ctx.shadowBlur  = 6;
+    ctx.fillRect(bx, _scanlineY, bw, 2);
+    ctx.shadowBlur  = 0;
+
+    // Gerakkan scanline
+    _scanlineY += _scanlineDir * 1.2;
+    if (_scanlineY >= by + bh - 4) _scanlineDir = -1;
+    if (_scanlineY <= by + 2)      _scanlineDir =  1;
+
+    _scanlineAnim = requestAnimationFrame(draw);
+  }
+
+  draw();
+}
+
 function _start() {
   try {
     _scanner = new Html5Qrcode('scanner-view');
@@ -156,8 +236,12 @@ function _start() {
       { facingMode: 'environment' },
       {
         fps: 15,
-        qrbox: { width: 300, height:100 , },
-        aspectRatio: 2.0,
+        qrbox: (vw, vh) => {
+          const w = Math.min(vw * 0.85, 320);
+          const h = Math.round(w * 0.33);
+          return { width: w, height: h };
+        },
+        aspectRatio: 1.5,
         formatsToSupport: [
           Html5QrcodeSupportedFormats.EAN_13,
           Html5QrcodeSupportedFormats.EAN_8,
@@ -171,7 +255,10 @@ function _start() {
       },
       (code) => _onResult(code),
       () => {},
-    ).catch(() => {
+    ).then(() => {
+      // Tunggu video render lalu gambar overlay
+      setTimeout(_drawOverlay, 800);
+    }).catch(() => {
       const msg = document.getElementById('scanner-msg');
       if (msg) msg.textContent = '⚠️ Tidak bisa akses kamera. Gunakan input manual.';
     });
@@ -182,6 +269,10 @@ function _start() {
 }
 
 function _onResult(code) {
+  if (_scanlineAnim) {
+    cancelAnimationFrame(_scanlineAnim);
+    _scanlineAnim = null;
+  }
   const msg = document.getElementById('scanner-msg');
   if (msg) { msg.textContent = `✅ ${code}`; msg.style.color = '#10b981'; }
   if (navigator.vibrate) navigator.vibrate(80);
@@ -192,6 +283,10 @@ function _onResult(code) {
 }
 
 function _stop() {
+  if (_scanlineAnim) {
+    cancelAnimationFrame(_scanlineAnim);
+    _scanlineAnim = null;
+  }
   if (_scanner) { _scanner.stop().catch(() => {}); _scanner = null; }
 }
 
