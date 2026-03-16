@@ -18,7 +18,7 @@ export function toast(msg, type = 'success') {
 export function openModal(id) {
   document.getElementById(id)?.classList.add('show');
   // Push history agar tombol back Android bisa menutup modal
-  history.pushState({ modal: id }, '', location.href.split('#')[0] + '#modal-' + id);
+  history.pushState({ modal: id }, '', '#modal-' + id);
 }
 
 export function closeModal(id) {
@@ -41,14 +41,6 @@ export function showModal(id, { title, titleEl, body, bodyEl }) {
   }
   openModal(id);
 }
-
-// Intersept popstate untuk menutup modal aktif saat back Android
-window.addEventListener('popstate', (e) => {
-  const openModals = document.querySelectorAll('.modal-overlay.show');
-  if (openModals.length > 0) {
-    openModals.forEach(m => m.classList.remove('show'));
-  }
-});
 
 // ── FAB ──────────────────────────────────────────────────────────────────────
 
@@ -79,12 +71,12 @@ const STATUS_MAP = {
 };
 
 export function setSyncStatus(status) {
-  const dot  = document.getElementById('sync-dot');
-  const txt  = document.getElementById('sync-text');
+  const dot    = document.getElementById('sync-dot');
+  const txt    = document.getElementById('sync-text');
   const banner = document.getElementById('offline-banner');
   const s = STATUS_MAP[status] ?? STATUS_MAP.offline;
-  if (dot) dot.className = s.cls;
-  if (txt) txt.textContent = s.text;
+  if (dot)    dot.className     = s.cls;
+  if (txt)    txt.textContent   = s.text;
   if (banner) banner.classList.toggle('show', status === 'offline');
 }
 
@@ -107,3 +99,16 @@ export function initSwipeClose() {
     el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); });
   });
 }
+
+// ── Back Android handler untuk modal ─────────────────────────────────────────
+
+window.addEventListener('popstate', (e) => {
+  // Jika yang di-back adalah scanner, jangan tutup modal
+  if (e.state?.modal === 'scanner') return;
+  if (document.getElementById('modal-scanner')) return;
+
+  const openModals = document.querySelectorAll('.modal-overlay.show');
+  if (openModals.length > 0) {
+    openModals.forEach(m => m.classList.remove('show'));
+  }
+});

@@ -1,7 +1,6 @@
 import * as DB            from './core/db.js';
 import * as Sync          from './core/sync.js';
 import * as Router        from './core/router.js';
-import { initBackHandler } from './core/router.js';
 import { initSwipeClose, setSyncStatus, removeFab } from './components/ui.js';
 import { seedIfEmpty }     from './modules/seed.js';
 import * as TxSvc          from './modules/transaksi.service.js';
@@ -22,8 +21,7 @@ import * as PageSettings   from './pages/settings.js';
   initSwipeClose();
   _registerRoutes();
   _bindHandlers();
-  initBackHandler();
-  Router.navigate('dashboard', false);
+  Router.navigate('dashboard');
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').then(reg => {
