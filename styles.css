@@ -271,6 +271,12 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); font-family:
 .chart-bar-label { font-size: 9px; color: var(--muted); font-family: var(--mono); }
 
 /* ── Cart ───────────────────────────────────────────────────────────────── */
+#tx-cart-section {
+  max-height: 220px;
+  overflow-y: auto;
+  margin-bottom: 8px;
+}
+#tx-cart-section::-webkit-scrollbar { display: none; }
 .cart-item   { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .cart-qty    { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-family: var(--mono); font-size: 13px; width: 60px; text-align: center; color: var(--text); outline: none; }
 .cart-name   { flex: 1; font-size: 13px; font-weight: 600; }
