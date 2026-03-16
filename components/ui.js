@@ -106,7 +106,7 @@ window.addEventListener('popstate', (e) => {
   // Jika yang di-back adalah scanner, jangan tutup modal
   if (e.state?.modal === 'scanner') return;
   if (document.getElementById('modal-scanner')) return;
-
+  if (e.state?.modal) return;
   const openModals = document.querySelectorAll('.modal-overlay.show');
   if (openModals.length > 0) {
     openModals.forEach(m => m.classList.remove('show'));
