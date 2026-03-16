@@ -156,10 +156,10 @@ function _creditCard(p) {
             cursor:pointer;display:flex;align-items:center;gap:4px"
           onclick="piutangToggleRiwayat('riwayat-${p.id}',this)">
           <span id="arrow-${p.id}"
-            style="transition:transform .2s;transform:rotate(90deg)">▶</span>
+            style="transition:transform .2s;transform:rotate(0deg)">▶</span>
           Riwayat Transaksi
         </div>
-        <div id="riwayat-${p.id}" style="display:block">
+        <div id="riwayat-${p.id}" style="display:none">
           ${riwayatHtml}
         </div>
       </div>
