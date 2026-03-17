@@ -22,6 +22,7 @@ import * as PageSettings   from './pages/settings.js';
   _registerRoutes();
   _bindHandlers();
   Router.navigate('dashboard');
+  _initSwipeNav();
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').then(reg => {
@@ -161,4 +162,66 @@ function _showUpdateBanner(newWorker) {
     banner.remove();
   });
   document.getElementById('update-dismiss').addEventListener('click', () => banner.remove());
+}
+
+// ── Swipe gesture untuk navigasi antar halaman ───────────────────────────────
+function _initSwipeNav() {
+  const PAGES = ['dashboard', 'barang', 'transaksi', 'piutang', 'log', 'settings'];
+  const THRESHOLD   = 60;  // minimum px horizontal untuk trigger swipe
+  const MAX_VERTICAL = 80; // maksimum px vertikal, biar tidak konflik scroll
+
+  let startX = 0;
+  let startY = 0;
+  let isSwiping = false;
+
+  const content = document.getElementById('content');
+
+  document.addEventListener('touchstart', (e) => {
+    // Jangan trigger jika modal/scanner terbuka
+    if (document.querySelector('.modal-overlay.show')) return;
+    if (document.getElementById('modal-scanner')) return;
+
+    startX    = e.touches[0].clientX;
+    startY    = e.touches[0].clientY;
+    isSwiping = false;
+  }, { passive: true });
+
+  document.addEventListener('touchmove', (e) => {
+    if (document.querySelector('.modal-overlay.show')) return;
+    if (document.getElementById('modal-scanner')) return;
+
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+
+    // Kalau gerak vertikal lebih dominan, ini scroll bukan swipe
+    if (Math.abs(dy) > MAX_VERTICAL && !isSwiping) return;
+
+    // Tandai sebagai swipe horizontal
+    if (Math.abs(dx) > 10) isSwiping = true;
+  }, { passive: true });
+
+  document.addEventListener('touchend', (e) => {
+    if (document.querySelector('.modal-overlay.show')) return;
+    if (document.getElementById('modal-scanner')) return;
+    if (!isSwiping) return;
+
+    const dx = e.changedTouches[0].clientX - startX;
+    const dy = e.changedTouches[0].clientY - startY;
+
+    // Abaikan jika gerak vertikal terlalu besar
+    if (Math.abs(dy) > MAX_VERTICAL) return;
+    if (Math.abs(dx) < THRESHOLD) return;
+
+    const current = Router.current();
+    const idx     = PAGES.indexOf(current);
+    if (idx === -1) return;
+
+    if (dx < 0 && idx < PAGES.length - 1) {
+      // Swipe kiri → halaman berikutnya
+      Router.navigate(PAGES[idx + 1]);
+    } else if (dx > 0 && idx > 0) {
+      // Swipe kanan → halaman sebelumnya
+      Router.navigate(PAGES[idx - 1]);
+    }
+  }, { passive: true });
 }

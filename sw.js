@@ -11,7 +11,7 @@
 
 // Ganti versi ini setiap kali push perubahan besar — opsional,
 // karena network-first sudah otomatis ambil file terbaru.
-const CACHE_NAME = 'tokoku-v3';
+const CACHE_NAME = 'tokoku-v4';
 
 // File-file yang di-precache saat install pertama kali
 const PRECACHE_URLS = [
@@ -66,40 +66,40 @@ self.addEventListener('activate', event => {
   );
 });
 
-// ── Fetch: Network-First dengan fallback cache ────────────────────────────────
-
 self.addEventListener('fetch', event => {
-  // Hanya handle GET request
   if (event.request.method !== 'GET') return;
 
-  // Jangan intercept request ke Apps Script / API eksternal
   const url = new URL(event.request.url);
   if (url.hostname !== self.location.hostname) return;
 
   event.respondWith(
-    fetch(event.request)
-      .then(networkResponse => {
-        // Berhasil dari network — simpan ke cache & return
-        if (networkResponse.ok) {
-          const clone = networkResponse.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        }
-        return networkResponse;
-      })
-      .catch(() => {
-        // Network gagal (offline) — coba dari cache
-        return caches.match(event.request).then(cached => {
-          if (cached) return cached;
+    caches.open(CACHE_NAME).then(cache =>
+      cache.match(event.request).then(cached => {
+        // Update cache di background (stale-while-revalidate)
+        const networkFetch = fetch(event.request).then(networkResponse => {
+          if (networkResponse.ok) {
+            cache.put(event.request, networkResponse.clone());
+          }
+          return networkResponse;
+        }).catch(() => null);
+
+        // Kalau ada di cache → langsung return (cepat!)
+        // Network fetch jalan di background untuk update cache
+        if (cached) return cached;
+
+        // Kalau belum ada di cache → tunggu network
+        return networkFetch.then(res => {
+          if (res) return res;
           // Fallback ke index.html untuk navigasi SPA
           if (event.request.mode === 'navigate') {
-            return caches.match('/index.html');
+            return cache.match('/index.html');
           }
           return new Response('Offline', { status: 503 });
         });
       })
+    )
   );
 });
-
 // ── Pesan dari app untuk trigger sync ────────────────────────────────────────
 
 self.addEventListener('message', event => {
