@@ -1,19 +1,5 @@
-/**
- * sw.js — Service Worker dengan strategi auto-update.
- *
- * Cara kerja:
- * - Saat online: ambil dari network dulu (selalu dapat versi terbaru),
- *   simpan ke cache sebagai fallback offline.
- * - Saat offline: pakai cache.
- * - Saat ada SW baru (setelah push ke GitHub): langsung aktif tanpa perlu
- *   user tutup & buka ulang aplikasi.
- */
-
-// Ganti versi ini setiap kali push perubahan besar — opsional,
-// karena network-first sudah otomatis ambil file terbaru.
 const CACHE_NAME = 'tokoku-v4';
 
-// File-file yang di-precache saat install pertama kali
 const PRECACHE_URLS = [
   '/',
   '/index.html',
@@ -26,6 +12,7 @@ const PRECACHE_URLS = [
   '/core/router.js',
   '/components/ui.js',
   '/components/html.js',
+  '/components/scanner.js',
   '/modules/barang.service.js',
   '/modules/transaksi.service.js',
   '/modules/seed.js',
@@ -34,14 +21,13 @@ const PRECACHE_URLS = [
   '/pages/transaksi.js',
   '/pages/piutang.js',
   '/pages/log.js',
+  '/pages/settings.js',
 ];
 
 // ── Install: cache semua file ─────────────────────────────────────────────────
 
 self.addEventListener('install', event => {
-  // skipWaiting: SW baru langsung aktif tanpa tunggu tab lama ditutup
   self.skipWaiting();
-
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(PRECACHE_URLS))
   );
@@ -50,11 +36,9 @@ self.addEventListener('install', event => {
 // ── Activate: hapus cache lama ────────────────────────────────────────────────
 
 self.addEventListener('activate', event => {
-  // clients.claim: SW baru langsung kontrol semua tab yang sudah terbuka
   event.waitUntil(
     Promise.all([
       self.clients.claim(),
-      // Hapus cache versi lama
       caches.keys().then(keys =>
         Promise.all(
           keys
@@ -65,6 +49,8 @@ self.addEventListener('activate', event => {
     ])
   );
 });
+
+// ── Fetch: Cache-First dengan background update ───────────────────────────────
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
@@ -100,7 +86,8 @@ self.addEventListener('fetch', event => {
     )
   );
 });
-// ── Pesan dari app untuk trigger sync ────────────────────────────────────────
+
+// ── Pesan dari app ────────────────────────────────────────────────────────────
 
 self.addEventListener('message', event => {
   if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
