@@ -3,7 +3,7 @@
   "name": "TokoKu - Inventory Toko",
   "short_name": "TokoKu",
   "description": "Aplikasi inventory toko offline-first dengan sync Google Sheets",
-  "start_url": "/index.html",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#0a0f1e",
   "theme_color": "#0f172a",
