@@ -3,6 +3,6 @@
       "target": {
         "namespace": "android_app",
         "package_name": "dev.pages.tokoku_9lo.twa",
-        "sha256_cert_fingerprints": ["ED:51:12:C9:8D:6D:60:2E:F5:9F:9E:5C:DB:10:C2:8A:D8:3F:1C:A1:2E:49:76:6D:40:2F:5F:81:09:18:9D:CD"]
+        "sha256_cert_fingerprints": ["0B:85:36:64:07:51:1D:94:66:E7:CE:A1:8B:26:1C:A7:6E:75:A5:C0:3E:9A:87:A6:5B:4F:07:8F:77:44:46:B1"]
       }
     }]
