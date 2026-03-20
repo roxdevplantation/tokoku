@@ -1,5 +1,4 @@
-
-const _routes   = new Map();   // name → { render, title }
+const _routes   = new Map();
 let   _current  = null;
 let   _onChange = null;
 
@@ -14,6 +13,10 @@ export function onChange(fn) {
 export function navigate(name) {
   const route = _routes.get(name);
   if (!route) { console.warn(`[Router] Unknown route: ${name}`); return; }
+
+  // Tutup overlay yang mungkin masih terbuka saat pindah halaman
+  document.getElementById('overlay-pilih-barang')?.remove();
+  document.getElementById('toast-overlay-barang')?.remove();
 
   _current = name;
   _onChange?.(name, route.title);

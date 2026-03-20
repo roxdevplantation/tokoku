@@ -88,8 +88,11 @@ function _bindHandlers() {
   window.txSimpan          = (m)   => PageTransaksi.simpan(m);
   window.txSavePelanggan   = (v)   => PageTransaksi.savePelanggan(v);
   window.txSaveCatatan     = (v)   => PageTransaksi.saveCatatan(v);
-  window.txScanBarcode     = ()    => PageTransaksi.scanBarcode();
-
+  window.txScanBarcode        = ()    => PageTransaksi.scanBarcode();
+  window.txOpenPilihBarang    = ()    => PageTransaksi.openPilihBarang();
+  window.txTutupPilihBarang   = ()    => PageTransaksi.tutupPilihBarang();
+  window.txCariBarang         = (v)   => PageTransaksi.cariBarang(v);
+  window.txPilihBarang        = (id)  => PageTransaksi.pilihBarang(id);
   // Piutang
   window.piutangBayarSemua       = (id)       => PagePiutang.bayarSemua(id);
   window.piutangBayarSebagian    = (pid, tid) => PagePiutang.bayarSebagian(pid, tid);
