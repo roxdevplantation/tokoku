@@ -57,7 +57,7 @@ function _registerRoutes() {
   Router.register('dashboard', 'Dashboard',    PageDashboard.render);
   Router.register('barang',    'Kelola Barang', PageBarang.render);
   Router.register('transaksi', 'Transaksi',     PageTransaksi.render);
-  Router.register('piutang',   'Piutang',       PagePiutang.render);
+  Router.register('piutang',   'Hutang/bon',       PagePiutang.render);
   Router.register('log',       'Log Transaksi', PageLog.render);
   Router.register('settings',  'Pengaturan',    PageSettings.render);
 }
@@ -123,6 +123,7 @@ function _bindHandlers() {
   window.settingsExportJSON   = ()    => PageSettings.exportJSON();
   window.settingsExportCSV    = ()    => PageSettings.exportCSV();
   window.settingsResetData    = ()    => PageSettings.resetData();
+  window.settingsPullFromSheets = () => PageSettings.pullFromSheets();
 
   // UI
   window.closeModal   = (id) => import('./components/ui.js').then(m => m.closeModal(id));

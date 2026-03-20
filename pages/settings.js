@@ -157,6 +157,21 @@ function _render() {
           <div style="font-size:11px;color:var(--muted)">Piutang</div>
         </div>
       </div>
+
+      <div style="background:var(--accent)11;border:1px solid var(--accent)33;
+                  border-radius:var(--radius-sm);padding:10px 13px;
+                  margin-bottom:10px;font-size:12px;color:var(--muted2);
+                  line-height:1.7">
+        ☁️ Jika data hilang, pulihkan dari Google Sheets yang sudah tersync
+      </div>
+      <button class="btn btn-primary" style="margin-bottom:12px"
+        onclick="settingsPullFromSheets()"
+        ${!hasSync ? 'disabled style="opacity:.4;pointer-events:none"' : ''}>
+        ☁️ Pulihkan Data dari Sheets
+      </button>
+
+      <div style="border-top:1px solid var(--border);margin-bottom:12px"></div>
+
       <button class="btn btn-ghost" style="margin-bottom:8px"
         onclick="settingsExportJSON()">📤 Export Backup (JSON)</button>
       <button class="btn btn-ghost" style="margin-bottom:8px"
@@ -227,10 +242,8 @@ export async function testSync() {
   const secret = document.getElementById('cfg-secret')?.value?.trim() || Sync.getConfig().secret;
   if (!url || !secret) { toast('Isi URL dan Secret Key dulu', 'error'); return; }
   if (!navigator.onLine) { toast('Tidak ada koneksi internet', 'error'); return; }
-
   Sync.saveConfig(url, secret);
   toast('🔄 Menguji koneksi…');
-
   try {
     await fetch(url, {
       method:  'POST',
@@ -251,6 +264,61 @@ export async function forceSync() {
   DB.queueSync('full_sync', { ts: Date.now() });
   const ok = await Sync.attemptSync();
   toast(ok ? '✅ Sync berhasil!' : '❌ Sync gagal', ok ? 'success' : 'error');
+}
+
+export async function pullFromSheets() {
+  if (!navigator.onLine) {
+    toast('Tidak ada koneksi internet', 'error');
+    return;
+  }
+
+  toast('☁️ Mengambil data dari Sheets…');
+  const result = await Sync.pullFromSheets();
+
+  if (!result.ok) {
+    toast(`❌ Gagal: ${result.error}`, 'error');
+    return;
+  }
+
+  const { barang, transaksi, piutang } = result.data ?? {};
+
+  if (!barang?.length && !transaksi?.length && !piutang?.length) {
+    toast('⚠️ Sheets kosong, tidak ada data', 'error');
+    return;
+  }
+
+  const confirmed = confirm(
+    `Pulihkan data dari Sheets?\n\n` +
+    `• ${barang?.length    ?? 0} barang\n` +
+    `• ${transaksi?.length ?? 0} transaksi\n` +
+    `• ${piutang?.length   ?? 0} piutang\n\n` +
+    `Data yang ID-nya sudah ada tidak akan ditimpa.`
+  );
+  if (!confirmed) return;
+
+  const db = DB.getDB();
+
+  const existingBarangIds    = new Set(db.barang.map(b => b.id));
+  const existingTransaksiIds = new Set(db.transaksi.map(t => t.id));
+  const existingPiutangIds   = new Set(db.piutang.map(p => p.id));
+
+  const newBarang    = (barang    ?? []).filter(b => b.id && !existingBarangIds.has(b.id));
+  const newTransaksi = (transaksi ?? []).filter(t => t.id && !existingTransaksiIds.has(t.id));
+  const newPiutang   = (piutang   ?? []).filter(p => p.id && !existingPiutangIds.has(p.id));
+
+  db.barang    = [...db.barang,    ...newBarang];
+  db.transaksi = [...db.transaksi, ...newTransaksi];
+  db.piutang   = [...db.piutang,   ...newPiutang];
+
+  DB.save();
+  window.__db = DB.getDB();
+
+  toast(
+    `✅ Dipulihkan: ${newBarang.length} barang, ` +
+    `${newTransaksi.length} transaksi, ` +
+    `${newPiutang.length} piutang`
+  );
+  _render();
 }
 
 export function toggleUrl() {
@@ -276,8 +344,9 @@ export function saveToko() {
   const db = DB.getDB();
   db.settings = { ...db.settings, toko, stok_min: stokMin };
   DB.save();
+  window.__db = DB.getDB();
   const logoEl = document.querySelector('.logo');
-  if (logoEl) logoEl.textContent = toko;
+  if (logoEl) logoEl.firstChild.textContent = toko;
   toast('✅ Info toko disimpan');
 }
 
@@ -309,19 +378,26 @@ export function hapusKat(idx) {
 }
 
 export function exportJSON() {
-  _download(`tokoku-backup-${_today()}.json`, JSON.stringify(DB.getDB(), null, 2), 'application/json');
+  _download(
+    `tokoku-backup-${_today()}.json`,
+    JSON.stringify(DB.getDB(), null, 2),
+    'application/json'
+  );
   toast('📤 Export berhasil');
 }
 
 export function exportCSV() {
   const rows = [
-    ['Nama','Kategori','Harga Beli','Harga Jual','Stok','Satuan'],
+    ['Nama','Kategori','Harga Beli','Harga Jual','Stok','Satuan','Barcode'],
     ...(DB.getDB().barang ?? []).map(b =>
-      [b.nama, b.kategori, b.harga_beli, b.harga_jual, b.stok, b.satuan]
+      [b.nama, b.kategori, b.harga_beli, b.harga_jual, b.stok, b.satuan, b.barcode ?? '']
     ),
   ];
-  _download(`tokoku-barang-${_today()}.csv`,
-    rows.map(r => r.map(v => `"${v ?? ''}"`).join(',')).join('\n'), 'text/csv');
+  _download(
+    `tokoku-barang-${_today()}.csv`,
+    rows.map(r => r.map(v => `"${v ?? ''}"`).join(',')).join('\n'),
+    'text/csv'
+  );
   toast('📊 Export CSV berhasil');
 }
 
@@ -330,7 +406,9 @@ export function resetData() {
   if (!confirm('Yakin? Data akan hilang permanen.')) return;
   const db = DB.getDB();
   db.barang = []; db.transaksi = []; db.piutang = [];
-  DB.save(); DB.clearPending();
+  DB.save();
+  DB.clearPending();
+  window.__db = DB.getDB();
   toast('🗑️ Semua data telah direset');
   _render();
 }
@@ -344,8 +422,8 @@ function _storageSize() {
 function _today() { return new Date().toISOString().slice(0, 10); }
 
 function _download(filename, content, mime) {
-  const a  = document.createElement('a');
-  a.href   = URL.createObjectURL(new Blob([content], { type: mime }));
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(new Blob([content], { type: mime }));
   a.download = filename;
   a.click();
   URL.revokeObjectURL(a.href);

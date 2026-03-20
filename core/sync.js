@@ -57,9 +57,6 @@ export async function attemptSync() {
         db:      DB.getDB(),
       }),
     });
-
-    // no-cors → response.type === 'opaque', tidak bisa cek status
-    // Anggap berhasil kalau tidak ada network error
     DB.clearPending();
     _emit('statusChange', 'online');
     return true;
@@ -69,6 +66,27 @@ export async function attemptSync() {
     return false;
   } finally {
     _isSyncing = false;
+  }
+}
+
+// ── PULL — ambil data dari Sheets untuk restore ───────────────────────────────
+
+export async function pullFromSheets() {
+  const cfg = getConfig();
+  if (!cfg.url || !cfg.secret) {
+    return { ok: false, error: 'Belum dikonfigurasi' };
+  }
+  if (!isOnline()) {
+    return { ok: false, error: 'Tidak ada koneksi internet' };
+  }
+  try {
+    const url  = `${cfg.url}?secret=${encodeURIComponent(cfg.secret)}`;
+    const res  = await fetch(url);
+    const json = await res.json();
+    if (!json.ok) return { ok: false, error: json.error ?? 'Gagal' };
+    return { ok: true, data: json.data };
+  } catch (err) {
+    return { ok: false, error: err.message };
   }
 }
 
