@@ -178,12 +178,142 @@ export function toggleRiwayat(elId, trigger) {
   if (arrow) arrow.style.transform = open ? 'rotate(0deg)' : 'rotate(90deg)';
 }
 
-export function bayarSemua(id) {
-  Svc.bayar(id);
-  toast('✅ Seluruh piutang ditandai lunas');
-  _renderList();
-}
 
+export function bayarSemua(id) {
+  const p = Svc.getAllPiutang().find(x => x.id === id);
+  if (!p) return;
+
+  const jumlahBelumLunas = p.riwayat?.filter(r => !r.lunas).length ?? 0;
+  const totalFmt = fmtRp(p.total);
+
+  // Hapus modal lama jika ada
+  document.getElementById('overlay-konfirmasi-lunas')?.remove();
+
+  const el = document.createElement('div');
+  el.id    = 'overlay-konfirmasi-lunas';
+  el.innerHTML = `
+    <div id="konfirmasi-sheet">
+
+      <!-- Icon -->
+      <div style="width:64px;height:64px;border-radius:50%;
+                  background:linear-gradient(135deg,var(--green)22,var(--green)11);
+                  border:2px solid var(--green)44;
+                  display:flex;align-items:center;justify-content:center;
+                  font-size:30px;margin:0 auto 16px">
+        ✅
+      </div>
+
+      <!-- Judul -->
+      <div style="font-size:18px;font-weight:800;text-align:center;
+                  margin-bottom:6px">
+        Lunasi Semua Piutang?
+      </div>
+
+      <!-- Nama pelanggan -->
+      <div style="font-size:13px;color:var(--muted2);text-align:center;
+                  margin-bottom:20px">
+        ${escHtml(p.pelanggan)}
+      </div>
+
+      <!-- Info card -->
+      <div style="background:var(--bg3);border-radius:var(--radius-sm);
+                  padding:14px 16px;margin-bottom:20px">
+        <div style="display:flex;justify-content:space-between;
+                    align-items:center;margin-bottom:10px">
+          <span style="font-size:12px;color:var(--muted)">Tagihan belum lunas</span>
+          <span style="font-size:13px;font-weight:700">
+            ${jumlahBelumLunas} transaksi
+          </span>
+        </div>
+        <div style="display:flex;justify-content:space-between;
+                    align-items:center;padding-top:10px;
+                    border-top:1px solid var(--border)">
+          <span style="font-size:12px;color:var(--muted)">Total dilunasi</span>
+          <span style="font-size:16px;font-weight:800;color:var(--green);
+                       font-family:var(--mono)">
+            ${totalFmt}
+          </span>
+        </div>
+      </div>
+
+      <!-- Peringatan -->
+      <div style="display:flex;align-items:center;gap:8px;
+                  background:var(--yellow)11;border:1px solid var(--yellow)33;
+                  border-radius:var(--radius-sm);padding:10px 13px;
+                  margin-bottom:24px">
+        <span style="font-size:16px">⚠️</span>
+        <span style="font-size:11px;color:var(--muted2);line-height:1.5">
+          Tindakan ini akan menandai semua tagihan sebagai lunas
+          dan <b>tidak bisa dibatalkan</b>.
+        </span>
+      </div>
+
+      <!-- Tombol -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <button onclick="document.getElementById('overlay-konfirmasi-lunas').remove()"
+          style="padding:13px;border-radius:var(--radius-sm);border:1px solid var(--border);
+                 background:var(--bg3);color:var(--muted2);font-family:var(--font);
+                 font-size:14px;font-weight:700;cursor:pointer">
+          Batal
+        </button>
+        <button id="btn-konfirmasi-lunas"
+          style="padding:13px;border-radius:var(--radius-sm);border:none;
+                 background:linear-gradient(135deg,var(--green),#34d399);
+                 color:#fff;font-family:var(--font);
+                 font-size:14px;font-weight:700;cursor:pointer">
+          ✓ Ya, Lunasi
+        </button>
+      </div>
+
+    </div>
+
+    <style>
+      #overlay-konfirmasi-lunas {
+        position: fixed;
+        inset: 0;
+        z-index: 400;
+        background: #00000088;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        backdrop-filter: blur(6px);
+        animation: fadeInOverlay .2s ease;
+      }
+      #konfirmasi-sheet {
+        background: var(--bg2);
+        border-radius: 20px;
+        padding: 28px 20px 20px;
+        width: 100%;
+        max-width: 360px;
+        animation: popIn .25s cubic-bezier(.34,1.56,.64,1);
+      }
+      @keyframes fadeInOverlay {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+      }
+      @keyframes popIn {
+        from { opacity: 0; transform: scale(.85); }
+        to   { opacity: 1; transform: scale(1); }
+      }
+    </style>
+  `;
+
+  // Tap area gelap = tutup
+  el.addEventListener('click', e => {
+    if (e.target === el) el.remove();
+  });
+
+  // Tombol konfirmasi
+  el.querySelector('#btn-konfirmasi-lunas').addEventListener('click', () => {
+    el.remove();
+    Svc.bayar(id);
+    toast('✅ Seluruh piutang ditandai lunas');
+    _renderList();
+  });
+
+  document.body.appendChild(el);
+}
 export function bayarSebagian(piutangId, txId) {
   Svc.bayarSebagian(piutangId, txId);
   toast('✅ Transaksi ini ditandai lunas');

@@ -1,9 +1,10 @@
 import * as DB            from './core/db.js';
 import * as Sync          from './core/sync.js';
 import * as Router        from './core/router.js';
-import { initSwipeClose, setSyncStatus, removeFab } from './components/ui.js';
+import { initSwipeClose, setSyncStatus, removeFab, closeModal } from './components/ui.js';
 import { seedIfEmpty }     from './modules/seed.js';
 import * as TxSvc          from './modules/transaksi.service.js';
+import { closeScanner }    from './components/scanner.js';
 import * as PageDashboard  from './pages/dashboard.js';
 import * as PageBarang     from './pages/barang.js';
 import * as PageTransaksi  from './pages/transaksi.js';
@@ -22,7 +23,17 @@ import * as PageSettings   from './pages/settings.js';
   _registerRoutes();
   _bindHandlers();
   Router.navigate('dashboard');
+  import('./components/scanner.js').then(m => m.preloadLib());
   _initSwipeNav();
+  _initBackHandler(); 
+
+  // Preload scanner library di background
+  setTimeout(() => {
+    const s = document.createElement('script');
+    s.src   = 'https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js';
+    s.async = true;
+    document.head.appendChild(s);
+  }, 2000);
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').then(reg => {
@@ -57,7 +68,7 @@ function _registerRoutes() {
   Router.register('dashboard', 'Dashboard',    PageDashboard.render);
   Router.register('barang',    'Kelola Barang', PageBarang.render);
   Router.register('transaksi', 'Transaksi',     PageTransaksi.render);
-  Router.register('piutang',   'Hutang/bon',       PagePiutang.render);
+  Router.register('piutang',   'Hutang/bon',    PagePiutang.render);
   Router.register('log',       'Log Transaksi', PageLog.render);
   Router.register('settings',  'Pengaturan',    PageSettings.render);
 }
@@ -79,20 +90,21 @@ function _bindHandlers() {
   window.barangQuickCalcMargin = ()    => PageBarang.quickCalcMargin();
 
   // Transaksi
-  window.txSetFilter       = (f)   => PageTransaksi.setFilter(f);
-  window.txShowDetail      = (id)  => PageTransaksi.showDetail(id);
-  window.txDelete          = (id)  => PageTransaksi.del(id);
-  window.txCartAdd         = ()    => PageTransaksi.cartAdd();
-  window.txCartRemove      = (i)   => PageTransaksi.cartRemove(i);
-  window.txCartQty         = (i,v) => PageTransaksi.cartQty(i, v);
-  window.txSimpan          = (m)   => PageTransaksi.simpan(m);
-  window.txSavePelanggan   = (v)   => PageTransaksi.savePelanggan(v);
-  window.txSaveCatatan     = (v)   => PageTransaksi.saveCatatan(v);
+  window.txSetFilter          = (f)   => PageTransaksi.setFilter(f);
+  window.txShowDetail         = (id)  => PageTransaksi.showDetail(id);
+  window.txDelete             = (id)  => PageTransaksi.del(id);
+  window.txCartAdd            = ()    => PageTransaksi.cartAdd();
+  window.txCartRemove         = (i)   => PageTransaksi.cartRemove(i);
+  window.txCartQty            = (i,v) => PageTransaksi.cartQty(i, v);
+  window.txSimpan             = (m)   => PageTransaksi.simpan(m);
+  window.txSavePelanggan      = (v)   => PageTransaksi.savePelanggan(v);
+  window.txSaveCatatan        = (v)   => PageTransaksi.saveCatatan(v);
   window.txScanBarcode        = ()    => PageTransaksi.scanBarcode();
   window.txOpenPilihBarang    = ()    => PageTransaksi.openPilihBarang();
   window.txTutupPilihBarang   = ()    => PageTransaksi.tutupPilihBarang();
   window.txCariBarang         = (v)   => PageTransaksi.cariBarang(v);
   window.txPilihBarang        = (id)  => PageTransaksi.pilihBarang(id);
+
   // Piutang
   window.piutangBayarSemua       = (id)       => PagePiutang.bayarSemua(id);
   window.piutangBayarSebagian    = (pid, tid) => PagePiutang.bayarSebagian(pid, tid);
@@ -115,26 +127,70 @@ function _bindHandlers() {
   window.logShowDetail = (id) => PageLog.showDetail(id);
 
   // Settings
-  window.settingsSaveSync     = ()    => PageSettings.saveSync();
-  window.settingsTestSync     = ()    => PageSettings.testSync();
-  window.settingsForceSync    = ()    => PageSettings.forceSync();
-  window.settingsToggleUrl    = ()    => PageSettings.toggleUrl();
-  window.settingsToggleSecret = ()    => PageSettings.toggleSecret();
-  window.settingsSaveToko     = ()    => PageSettings.saveToko();
-  window.settingsTambahKat    = ()    => PageSettings.tambahKat();
-  window.settingsHapusKat     = (idx) => PageSettings.hapusKat(idx);
-  window.settingsExportJSON   = ()    => PageSettings.exportJSON();
-  window.settingsExportCSV    = ()    => PageSettings.exportCSV();
-  window.settingsResetData    = ()    => PageSettings.resetData();
-  window.settingsPullFromSheets = () => PageSettings.pullFromSheets();
+  window.settingsSaveSync       = ()    => PageSettings.saveSync();
+  window.settingsTestSync       = ()    => PageSettings.testSync();
+  window.settingsForceSync      = ()    => PageSettings.forceSync();
+  window.settingsToggleUrl      = ()    => PageSettings.toggleUrl();
+  window.settingsToggleSecret   = ()    => PageSettings.toggleSecret();
+  window.settingsSaveToko       = ()    => PageSettings.saveToko();
+  window.settingsTambahKat      = ()    => PageSettings.tambahKat();
+  window.settingsHapusKat       = (idx) => PageSettings.hapusKat(idx);
+  window.settingsExportJSON     = ()    => PageSettings.exportJSON();
+  window.settingsExportCSV      = ()    => PageSettings.exportCSV();
+  window.settingsResetData      = ()    => PageSettings.resetData();
+  window.settingsPullFromSheets = ()    => PageSettings.pullFromSheets();
 
-  // UI
-  window.closeModal   = (id) => import('./components/ui.js').then(m => m.closeModal(id));
+  // UI — langsung pakai import statis, tidak pakai import() dinamis
+  window.closeModal   = (id) => closeModal(id);
   window.showTxDetail = (id) => PageTransaksi.showDetail(id);
 
   // Dashboard omzet
   window.dashboardHapusOmzet = (id) => PageDashboard.hapusOmzet(id);
   window.dashboardClearOmzet = ()   => PageDashboard.clearOmzet();
+}
+
+// ── Central back button handler ───────────────────────────────────────────────
+function _initBackHandler() {
+  window.addEventListener('popstate', () => {
+
+    // 1. Scanner terbuka → tutup scanner
+    if (document.getElementById('modal-scanner')) {
+      closeScanner();
+      return;
+    }
+
+    // 2. Overlay pilih barang → tutup overlay
+    const overlay = document.getElementById('overlay-pilih-barang');
+    if (overlay) {
+      overlay.remove();
+      document.getElementById('toast-overlay-barang')?.remove();
+      history.pushState({ tokoku: 'modal-transaksi' }, '');
+      return;
+    }
+
+    // 3. Modal transaksi → tutup modal
+    const modalTx = document.getElementById('modal-transaksi');
+    if (modalTx?.classList.contains('show')) {
+      closeModal('modal-transaksi');
+      return;
+    }
+
+    // 4. Modal lain → tutup modal
+    const anyModal = document.querySelector('.modal-overlay.show');
+    if (anyModal) {
+      closeModal(anyModal.id);
+      return;
+    }
+
+    // 5. Overlay konfirmasi lunas → tutup
+    const konfirmasi = document.getElementById('overlay-konfirmasi-lunas');
+    if (konfirmasi) {
+      konfirmasi.remove();
+      return;
+    }
+
+    // 6. Tidak ada → biarkan browser (keluar app)
+  });
 }
 
 function _showUpdateBanner(newWorker) {
@@ -168,23 +224,20 @@ function _showUpdateBanner(newWorker) {
   document.getElementById('update-dismiss').addEventListener('click', () => banner.remove());
 }
 
-// ── Swipe gesture untuk navigasi antar halaman ───────────────────────────────
+// ── Swipe gesture untuk navigasi antar halaman ────────────────────────────────
 function _initSwipeNav() {
-  const PAGES = ['dashboard', 'barang', 'transaksi', 'piutang', 'log', 'settings'];
-  const THRESHOLD   = 60;  // minimum px horizontal untuk trigger swipe
-  const MAX_VERTICAL = 80; // maksimum px vertikal, biar tidak konflik scroll
+  const PAGES       = ['dashboard', 'barang', 'transaksi', 'piutang', 'log', 'settings'];
+  const THRESHOLD   = 60;
+  const MAX_VERTICAL = 80;
 
-  let startX = 0;
-  let startY = 0;
+  let startX    = 0;
+  let startY    = 0;
   let isSwiping = false;
 
-  const content = document.getElementById('content');
-
   document.addEventListener('touchstart', (e) => {
-    // Jangan trigger jika modal/scanner terbuka
     if (document.querySelector('.modal-overlay.show')) return;
     if (document.getElementById('modal-scanner')) return;
-
+    if (document.getElementById('overlay-pilih-barang')) return;
     startX    = e.touches[0].clientX;
     startY    = e.touches[0].clientY;
     isSwiping = false;
@@ -193,39 +246,26 @@ function _initSwipeNav() {
   document.addEventListener('touchmove', (e) => {
     if (document.querySelector('.modal-overlay.show')) return;
     if (document.getElementById('modal-scanner')) return;
-
+    if (document.getElementById('overlay-pilih-barang')) return;
     const dx = e.touches[0].clientX - startX;
     const dy = e.touches[0].clientY - startY;
-
-    // Kalau gerak vertikal lebih dominan, ini scroll bukan swipe
     if (Math.abs(dy) > MAX_VERTICAL && !isSwiping) return;
-
-    // Tandai sebagai swipe horizontal
     if (Math.abs(dx) > 10) isSwiping = true;
   }, { passive: true });
 
   document.addEventListener('touchend', (e) => {
     if (document.querySelector('.modal-overlay.show')) return;
     if (document.getElementById('modal-scanner')) return;
+    if (document.getElementById('overlay-pilih-barang')) return;
     if (!isSwiping) return;
-
     const dx = e.changedTouches[0].clientX - startX;
     const dy = e.changedTouches[0].clientY - startY;
-
-    // Abaikan jika gerak vertikal terlalu besar
     if (Math.abs(dy) > MAX_VERTICAL) return;
     if (Math.abs(dx) < THRESHOLD) return;
-
     const current = Router.current();
     const idx     = PAGES.indexOf(current);
     if (idx === -1) return;
-
-    if (dx < 0 && idx < PAGES.length - 1) {
-      // Swipe kiri → halaman berikutnya
-      Router.navigate(PAGES[idx + 1]);
-    } else if (dx > 0 && idx > 0) {
-      // Swipe kanan → halaman sebelumnya
-      Router.navigate(PAGES[idx - 1]);
-    }
+    if (dx < 0 && idx < PAGES.length - 1) Router.navigate(PAGES[idx + 1]);
+    else if (dx > 0 && idx > 0)           Router.navigate(PAGES[idx - 1]);
   }, { passive: true });
 }

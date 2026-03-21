@@ -125,7 +125,7 @@ function _drawOverlay() {
 
   // Tunggu sampai video benar-benar render dan punya tinggi
   if (H < 10) {
-    setTimeout(_drawOverlay, 300);
+    setTimeout(_drawOverlay, 150);
     return;
   }
 
